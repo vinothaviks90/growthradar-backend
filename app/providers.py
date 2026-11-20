@@ -162,7 +162,12 @@ class FinnhubProvider(MarketDataProvider):
             "name": profile.get("name"),
             "exchange": profile.get("exchange"),
             "currency": profile.get("currency") or "USD",
-            "sector": profile.get("finnhubIndustry"),
+            # Sector identity comes from our catalogue when the ticker is
+            # catalogued, so API sector filters and sector-growth scoring
+            # use the app taxonomy — not Finnhub's free-text industry,
+            # which silently broke both.
+            "sector": next((s["sector"] for s in demo_data.SECURITIES
+                            if s["ticker"] == t), profile.get("finnhubIndustry")),
             "price": quote.get("c") if quote else None,
             "prev_close": quote.get("pc") if quote else None,
             "day_change_pct": quote.get("dp") if quote else None,
