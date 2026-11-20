@@ -120,7 +120,7 @@ def securities(market: str | None = None, sector: str | None = None,
                max_price: float | None = None, currency: str | None = None):
     items = provider.list_securities()
     if market:
-        items = [s for s in items if s["exchange"].upper() == market.upper()]
+        items = [s for s in items if market.upper() in s["exchange"].upper()]
     if sector:
         items = [s for s in items if s["sector"] == sector]
     if currency:
@@ -205,6 +205,27 @@ def _build_snapshot() -> dict:
             "provider": provider.name, "count": len(items), "items": items}
 
 
+def _demo_snapshot() -> dict:
+    """Instant fallback built only from in-process demo fixtures (no
+    network): served while the first live build is still running, so a
+    cold start never blocks /snapshot for minutes. Every record stays
+    labelled DEMO; tickers without a fixture price are skipped."""
+    items = []
+    for base in _demo_provider.list_securities():
+        if not base.get("price"):
+            continue
+        growth = (SECTORS_CFG.get(base.get("sector")) or {}).get("growth_rate_pct")
+        metrics = _demo_provider.get_metrics(base["ticker"]) or {}
+        result = scoring.compute_score(metrics, growth, SCORING_CFG["weights"])
+        sec = dict(base)
+        sec["sector_growth_pct"] = growth
+        items.append({"security": sec, "metrics": metrics,
+                      "score": {"total": result.total, "label": result.label,
+                                "confidence": result.confidence, "missing": result.missing}})
+    return {"generated_at": datetime.now(timezone.utc).isoformat(),
+            "provider": provider.name, "count": len(items), "items": items}
+
+
 def _refresh_snapshot_bg() -> None:
     if _snapshot_building["active"]:
         return
@@ -236,9 +257,10 @@ def snapshot():
         if now - _snapshot_cache["at"] >= 300:
             threading.Thread(target=_refresh_snapshot_bg, daemon=True).start()
         return _snapshot_cache["data"]
-    data = _build_snapshot()
-    _snapshot_cache.update(at=now, data=data)
-    return data
+    # No live snapshot yet (cold start): build in the background and serve
+    # the instant demo-labelled fallback instead of blocking for minutes.
+    threading.Thread(target=_refresh_snapshot_bg, daemon=True).start()
+    return _demo_snapshot()
 
 
 @app.get("/securities/{ticker}/research")
@@ -277,7 +299,8 @@ def list_recommendations(session=Depends(db)):
             perf = round(pm.recommendation_return(r.price_at_recommendation, sec["price"]), 2)
         out.append({"id": r.id, "ticker": r.ticker, "recommendation": r.recommendation,
                     "price_at_recommendation": r.price_at_recommendation,
-                    "current_price_demo": sec["price"] if sec else None,
+                    "current_price": sec["price"] if sec else None,
+                    "current_price_status": sec.get("data_status") if sec else None,
                     "return_since_pct": perf, "score": r.score, "confidence": r.confidence,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                     "evaluation_note": "30/90/180/365-day evaluations are computed against stored price history once a live provider is connected; periods not yet elapsed show as pending."})
