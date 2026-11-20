@@ -1,0 +1,7 @@
+app:
+  name: AI GrowthRadar
+  version: 1.0.0
+  default_currency: CAD
+  default_price_cap: 50.0
+  disclaimer: "Research and decision-support only. Not financial advice. Predictions are uncertain; you make your own investment decisions."
+  data_rule: "Missing data is shown as Not available. Demo data is always labelled DEMO."

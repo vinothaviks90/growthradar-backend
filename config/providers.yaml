@@ -1,0 +1,8 @@
+providers:
+  active: demo
+  demo: {enabled: true, note: "Clearly labelled demo fixtures. Never present as live data."}
+  finnhub: {enabled: true, base_url: "https://finnhub.io/api/v1", api_key_env: FINNHUB_API_KEY, note: "Free account created 2026-11-19 (vinothcanada90@gmail.com); key held in the custom.finnhub connector. US exchanges live; TSX returns 403 on free tier. Adapter implemented in app/providers.py."}
+  fmp: {enabled: false, base_url: "https://financialmodelingprep.com/api/v3", api_key_env: FMP_API_KEY, note: "Paid tiers needed for full TSX coverage."}
+  twelvedata: {enabled: false, base_url: "https://api.twelvedata.com", api_key_env: TWELVEDATA_API_KEY, note: "TSX coverage on paid tiers."}
+  alphavantage: {enabled: false, base_url: "https://www.alphavantage.co/query", api_key_env: ALPHAVANTAGE_API_KEY, note: "Free tier 25 requests/day."}
+  sec_edgar: {enabled: true, base_url: "https://data.sec.gov", api_key_env: null, note: "Free, official US filings. Requires a declared User-Agent."}

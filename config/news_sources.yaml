@@ -1,0 +1,5 @@
+news_sources:
+  - {name: "SEC EDGAR", url: "https://www.sec.gov/edgar", type: filings, priority: 1}
+  - {name: "SEDAR+", url: "https://www.sedarplus.ca", type: filings, priority: 1}
+  - {name: "Company Investor Relations", url: "", type: official, priority: 1}
+  - {name: "Government contract announcements", url: "", type: government, priority: 2}

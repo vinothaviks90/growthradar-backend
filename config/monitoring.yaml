@@ -1,0 +1,9 @@
+monitoring:
+  interval_minutes: 30
+  scheduler: backend
+  note: "Android WorkManager is best-effort only; reliable monitoring runs on the backend scheduler with FCM push."
+  markets:
+    - {exchange: NASDAQ, currency: USD}
+    - {exchange: NYSE, currency: USD}
+    - {exchange: TSX, currency: CAD}
+    - {exchange: TSXV, currency: CAD}

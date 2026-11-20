@@ -1,0 +1,13 @@
+sectors:
+  ai_infrastructure: {label: "AI Infrastructure & Software", growth_rate_pct: 28.0}
+  semiconductors: {label: "Semiconductors & Chip Manufacturing", growth_rate_pct: 18.0}
+  data_centers_cloud: {label: "Data Centers & Cloud Infrastructure", growth_rate_pct: 20.0}
+  energy_grid: {label: "Energy, Electricity & Grid Infrastructure", growth_rate_pct: 9.0}
+  robotics_automation: {label: "Robotics & Industrial Automation", growth_rate_pct: 14.0}
+  defence_aerospace: {label: "Defence & Aerospace", growth_rate_pct: 8.0}
+  biotech_healthcare: {label: "Biotechnology & Healthcare Innovation", growth_rate_pct: 11.0}
+  cybersecurity: {label: "Cybersecurity", growth_rate_pct: 13.0}
+  critical_minerals: {label: "Critical Minerals & Strategic Resources", growth_rate_pct: 10.0}
+  nextgen_computing: {label: "Next-Generation Computing & Emerging Tech", growth_rate_pct: 22.0}
+  broad_market_etf: {label: "Broad Market / ETF", growth_rate_pct: 7.0}
+  other: {label: "Other", growth_rate_pct: 6.0}

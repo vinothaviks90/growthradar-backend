@@ -1,0 +1,6 @@
+ai_models:
+  research_agent:
+    provider_env: AI_PROVIDER
+    model_env: AI_MODEL
+    note: "The LLM explains retrieved evidence only. It never invents or alters numerical scores, prices, or metrics."
+  enabled: false

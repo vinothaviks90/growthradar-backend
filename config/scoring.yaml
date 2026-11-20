@@ -1,0 +1,20 @@
+weights:
+  revenue_earnings: 20
+  business_quality: 15
+  industry_growth: 15
+  financial_health: 15
+  valuation: 15
+  institutional: 10
+  momentum: 5
+  catalysts: 5
+bands:
+  exceptional: 85
+  strong: 75
+  promising: 65
+  moderate: 50
+labels:
+  exceptional: "Exceptional research candidate"
+  strong: "Strong research candidate"
+  promising: "Promising, requires further evaluation"
+  moderate: "Moderate or uncertain opportunity"
+  weak: "Weak current investment profile"

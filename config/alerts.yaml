@@ -1,0 +1,20 @@
+alerts:
+  dedupe_window_hours: 24
+  profit_milestones_pct: [25, 50, 75, 100]
+  score_change_threshold: 5
+  price_move_pct: 5.0
+  categories:
+    - new_opportunity
+    - buy_candidate
+    - thesis_strengthened
+    - score_improved
+    - score_deteriorated
+    - entry_range_reached
+    - profit_milestone
+    - partial_profit_review
+    - fundamental_deterioration
+    - exit_review
+    - post_sale_opportunity
+    - reentry_candidate
+    - earnings
+    - company_news
