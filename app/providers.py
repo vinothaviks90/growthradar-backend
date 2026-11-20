@@ -74,10 +74,22 @@ class DemoProvider(MarketDataProvider):
         return [self._wrap(n) for n in items]
 
 
+_PACE_LOCK = __import__("threading").Lock()
+_PACE_LAST = [0.0]
+_PACE_MIN_INTERVAL = 1.05  # Finnhub free tier: 60 calls/minute
+
+
 def _finnhub_get(path: str, params: dict, api_key: str) -> dict | list:
     import json as _json
+    import time as _time
     import urllib.parse
     import urllib.request
+
+    with _PACE_LOCK:
+        wait = _PACE_MIN_INTERVAL - (_time.monotonic() - _PACE_LAST[0])
+        if wait > 0:
+            _time.sleep(wait)
+        _PACE_LAST[0] = _time.monotonic()
 
     url = "https://finnhub.io/api/v1" + path + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"X-Finnhub-Token": api_key})
@@ -97,15 +109,21 @@ class FinnhubProvider(MarketDataProvider):
 
     name = "finnhub"
 
-    # US-listed universe served live. TSX names are excluded on purpose.
-    UNIVERSE = ["POET", "INDI", "SOUN", "BBAI", "AI", "QBTS", "RGTI",
-                "JOBY", "ACHR", "BB", "NVDA"]
+    # US-listed universe served live: every non-TSX entry in the demo
+    # catalogue. TSX names are excluded on purpose (free-tier 403).
+    UNIVERSE = [s["ticker"] for s in demo_data.SECURITIES
+                if not s["ticker"].endswith((".TO", ".V"))]
 
     def __init__(self, fetch=None):
         self.api_key = os.environ.get("FINNHUB_API_KEY", "")
         if not self.api_key and fetch is None:
             raise RuntimeError("FINNHUB_API_KEY not set")
         self._fetch = fetch or _finnhub_get
+        # Profiles barely change (24 h cache); TTM metrics are quarterly
+        # (30 min cache). Quotes are always fetched fresh. These caches
+        # keep a 60-name snapshot inside the free tier's 60 calls/minute.
+        self._profile_cache: dict[str, tuple[float, dict]] = {}
+        self._metric_cache: dict[str, tuple[float, dict]] = {}
 
     def _get(self, path, **params):
         return self._fetch(path, params, self.api_key)
@@ -125,7 +143,14 @@ class FinnhubProvider(MarketDataProvider):
         t = ticker.upper()
         if t.endswith(".TO") or t.endswith(".V"):
             return None  # not covered on the Finnhub free tier
-        profile = self._get("/stock/profile2", symbol=t)
+        import time as _time
+        cached = self._profile_cache.get(t)
+        if cached and _time.monotonic() - cached[0] < 86_400:
+            profile = cached[1]
+        else:
+            profile = self._get("/stock/profile2", symbol=t)
+            if profile:
+                self._profile_cache[t] = (_time.monotonic(), profile)
         if not profile or not profile.get("name"):
             return None
         quote = self._get("/quote", symbol=t)
@@ -158,7 +183,14 @@ class FinnhubProvider(MarketDataProvider):
         t = ticker.upper()
         if t.endswith(".TO") or t.endswith(".V"):
             return None
-        payload = self._get("/stock/metric", symbol=t, metric="all")
+        import time as _time
+        cached = self._metric_cache.get(t)
+        if cached and _time.monotonic() - cached[0] < 1_800:
+            payload = cached[1]
+        else:
+            payload = self._get("/stock/metric", symbol=t, metric="all")
+            if payload:
+                self._metric_cache[t] = (_time.monotonic(), payload)
         m = (payload or {}).get("metric") or {}
         if not m:
             return None

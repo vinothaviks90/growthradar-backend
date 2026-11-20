@@ -10,6 +10,9 @@ import hashlib
 import json
 import os
 import secrets
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -162,6 +165,62 @@ def discover(max_price: float | None = None, sector: str | None = None,
 
 _demo_provider = DemoProvider()
 _snapshot_cache: dict = {"at": 0.0, "data": None}
+_snapshot_building = {"active": False}
+
+
+def _build_snapshot() -> dict:
+    """Assemble the snapshot payload in parallel. The provider paces its
+    own calls to stay inside the free tier's rate limit; profiles and
+    metrics are cached provider-side, so steady-state rebuilds are mostly
+    fresh quotes. Records with no usable price (provider cannot serve the
+    ticker and no fixture price exists) are skipped rather than shown
+    with an invented price. Sector identity always comes from the
+    catalogue, so live records keep the app's sector taxonomy."""
+
+    def one(base):
+        ticker = base["ticker"]
+        try:
+            live = provider.get_security(ticker)
+        except Exception:
+            live = None  # one unservable ticker must not kill the snapshot
+        sec = dict(live or base)
+        sec["sector"] = base.get("sector")
+        growth = (SECTORS_CFG.get(base.get("sector")) or {}).get("growth_rate_pct")
+        sec["sector_growth_pct"] = growth
+        if not sec.get("price"):
+            return None
+        try:
+            metrics = provider.get_metrics(ticker) or _demo_provider.get_metrics(ticker) or {}
+        except Exception:
+            metrics = _demo_provider.get_metrics(ticker) or {}
+        result = scoring.compute_score(metrics, growth, SCORING_CFG["weights"])
+        return {"security": sec, "metrics": metrics,
+                "score": {"total": result.total, "label": result.label,
+                          "confidence": result.confidence, "missing": result.missing}}
+
+    bases = _demo_provider.list_securities()
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        items = [it for it in ex.map(one, bases) if it]
+    return {"generated_at": datetime.now(timezone.utc).isoformat(),
+            "provider": provider.name, "count": len(items), "items": items}
+
+
+def _refresh_snapshot_bg() -> None:
+    if _snapshot_building["active"]:
+        return
+    _snapshot_building["active"] = True
+    try:
+        data = _build_snapshot()
+        _snapshot_cache.update(at=time.time(), data=data)
+    except Exception:
+        pass  # keep serving the previous snapshot
+    finally:
+        _snapshot_building["active"] = False
+
+
+@app.on_event("startup")
+def _warm_snapshot() -> None:
+    threading.Thread(target=_refresh_snapshot_bg, daemon=True).start()
 
 
 @app.get("/snapshot")
@@ -170,28 +229,14 @@ def snapshot():
     its metrics and GrowthRadar score. Live records carry data_status=LIVE;
     anything the active provider cannot serve (for example TSX names on the
     Finnhub free tier) falls back to the demo fixture and stays labelled
-    DEMO per record. Cached for 5 minutes to respect provider rate limits.
-    """
-    import time
-
+    DEMO per record. Served from a 5-minute cache; a stale cache is
+    returned immediately while a rebuild runs in the background."""
     now = time.time()
-    if _snapshot_cache["data"] and now - _snapshot_cache["at"] < 300:
+    if _snapshot_cache["data"]:
+        if now - _snapshot_cache["at"] >= 300:
+            threading.Thread(target=_refresh_snapshot_bg, daemon=True).start()
         return _snapshot_cache["data"]
-    items = []
-    for base in _demo_provider.list_securities():
-        ticker = base["ticker"]
-        sec = provider.get_security(ticker) or base
-        metrics = provider.get_metrics(ticker) or _demo_provider.get_metrics(ticker) or {}
-        sector_growth = (SECTORS_CFG.get(sec.get("sector")) or {}).get("growth_rate_pct")
-        result = scoring.compute_score(metrics, sector_growth, SCORING_CFG["weights"])
-        items.append({
-            "security": sec,
-            "metrics": metrics,
-            "score": {"total": result.total, "label": result.label,
-                      "confidence": result.confidence, "missing": result.missing},
-        })
-    data = {"generated_at": datetime.now(timezone.utc).isoformat(),
-            "provider": provider.name, "count": len(items), "items": items}
+    data = _build_snapshot()
     _snapshot_cache.update(at=now, data=data)
     return data
 
