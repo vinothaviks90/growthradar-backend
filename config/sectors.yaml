@@ -11,3 +11,4 @@ sectors:
   nextgen_computing: {label: "Next-Generation Computing & Emerging Tech", growth_rate_pct: 22.0}
   broad_market_etf: {label: "Broad Market / ETF", growth_rate_pct: 7.0}
   other: {label: "Other", growth_rate_pct: 6.0}
+  fintech: {label: "Fintech & Digital Finance", growth_rate_pct: 14.0}
